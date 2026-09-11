@@ -59,6 +59,15 @@ pnpm db:seed
 
 需要重建本地开发数据库时运行 `pnpm db:reset`；该命令会清空当前数据库，只应对专用开发库使用。
 
+### 运行 Mock 同步
+
+```bash
+pnpm mock:sync
+pnpm mock:sync <shop-id> products
+```
+
+不带参数时会对全部已连接店铺执行完整 Mock 同步。第二个参数可选 `products`、`orders`、`refunds` 或 `full`。Mock Adapter 只生成确定性演示数据，不连接任何真实平台 API。
+
 ### 启动开发服务器
 
 ```bash
@@ -72,6 +81,7 @@ pnpm dev
 ```bash
 pnpm lint
 pnpm typecheck
+pnpm test
 pnpm build
 pnpm db:validate
 pnpm db:generate
@@ -102,7 +112,7 @@ pnpm db:generate
 
 ## 当前阶段
 
-Phase 2 已完成 PostgreSQL/Prisma 交易数据模型、初始 migration 和可重复运行的 30 天演示数据 seed。后续阶段会继续实现 Mock Adapter、同步编排与 Dashboard 功能。
+Phase 3 已完成三平台 Mock Adapter、标准化数据契约、幂等同步编排、游标与运行日志持久化。真实平台 Adapter 仍保持空骨架，后续接入必须以届时官方文档为准。
 
 > 安全提醒：仓库中永远不要提交真实平台账号、密码、Cookie、Access Token、Refresh Token、App Key、App Secret、数据库密码等敏感信息。
 

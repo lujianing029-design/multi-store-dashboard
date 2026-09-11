@@ -7,6 +7,8 @@
     "build": "next build",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/retry.test.ts tests/security.test.ts tests/mock-adapters.test.ts tests/orchestrator.test.ts",
+    "mock:sync": "tsx scripts/mock-sync.ts",
     "prisma:generate": "prisma generate",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
