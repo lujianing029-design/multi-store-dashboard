@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: multi_store_dev
+      POSTGRES_USER: dashboard
+      POSTGRES_PASSWORD: dashboard_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dashboard -d multi_store_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    ports:
+      - "5432:5432"
+    volumes:
+      - multi-store-postgres:/var/lib/postgresql/data
+
+volumes:
+  multi-store-postgres:
+

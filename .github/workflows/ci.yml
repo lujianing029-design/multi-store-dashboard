@@ -1,0 +1,63 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: multi_store_test
+          POSTGRES_USER: dashboard
+          POSTGRES_PASSWORD: dashboard_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dashboard -d multi_store_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgresql://dashboard:dashboard_test@localhost:5432/multi_store_test?schema=public
+      APP_TIMEZONE: Asia/Shanghai
+      DASHBOARD_DATA_MODE: database
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Unit tests
+        run: pnpm test:unit
+      - name: Check committed secrets
+        run: pnpm check:secrets
+      - name: Validate Prisma schema
+        run: pnpm db:validate
+      - name: Generate Prisma client
+        run: pnpm db:generate
+      - name: Verify PostgreSQL pipeline
+        run: pnpm ci:database
+      - name: Production build
+        env:
+          DASHBOARD_DATA_MODE: demo
+        run: pnpm build
+
