@@ -3,6 +3,7 @@ node_modules/
 
 # Next.js
 .next/
+.next*/
 out/
 build/
 
@@ -28,3 +29,4 @@ pnpm-debug.log*
 *.pem
 .vscode/
 .idea/
+
