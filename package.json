@@ -7,8 +7,9 @@
     "build": "next build",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/retry.test.ts tests/security.test.ts tests/mock-adapters.test.ts tests/orchestrator.test.ts",
+    "test": "tsx --test tests/retry.test.ts tests/security.test.ts tests/mock-adapters.test.ts tests/orchestrator.test.ts tests/metrics.test.ts tests/timezone.test.ts tests/aggregation.test.ts tests/mapping.test.ts",
     "mock:sync": "tsx scripts/mock-sync.ts",
+    "metrics:rebuild": "tsx scripts/rebuild-metrics.ts",
     "prisma:generate": "prisma generate",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
@@ -19,12 +20,15 @@
   },
   "dependencies": {
     "@prisma/client": "7.10.0",
+    "@prisma/client-runtime-utils": "7.10.0",
     "@prisma/adapter-pg": "7.10.0",
     "dotenv": "17.4.2",
+    "lucide-react": "1.45.0",
     "next": "16.3.4",
     "pg": "8.23.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "recharts": "3.10.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",

@@ -1,39 +1,28 @@
-const readinessItems = [
-  "Next.js App Router",
-  "TypeScript strict mode",
-  "Tailwind CSS",
-  "ESLint",
-  "Prisma client wiring"
-];
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { PlatformChart, SalesTrendChart } from "@/components/dashboard/charts";
+import { KpiGrid } from "@/components/dashboard/kpi-grid";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { RangeFilter } from "@/components/dashboard/range-filter";
+import { formatCurrency, formatNumber, formatPercent } from "@/lib/dashboard/format";
+import { getDashboardSnapshot } from "@/lib/dashboard/service";
+import { parsePreset } from "@/lib/metrics/timezone";
 
-export default function Home() {
-  return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center px-6 py-16">
-      <section className="space-y-8">
-        <div className="space-y-4">
-          <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Phase 1
-          </p>
-          <h1 className="max-w-3xl text-4xl font-semibold tracking-normal text-slate-950 sm:text-5xl">
-            Multi Store Dashboard 工程初始化完成
-          </h1>
-          <p className="max-w-2xl text-lg leading-8 text-slate-600">
-            这是多平台电商经营数据系统的基础工程。后续阶段会继续加入数据模型、Mock
-            Adapter、同步任务和经营看板。
-          </p>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {readinessItems.map((item) => (
-            <div
-              className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm"
-              key={item}
-            >
-              {item}
-            </div>
-          ))}
-        </div>
-      </section>
-    </main>
-  );
+export default async function Home({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
+  const preset = parsePreset((await searchParams).range);
+  const data = await getDashboardSnapshot(preset);
+  return <div className="page">
+    <PageHeader title="经营总览" description={data.rangeLabel} updatedAt={data.updatedAt} actions={<RangeFilter value={preset} />} />
+    <KpiGrid items={data.kpis} />
+    <div className="dashboard-grid">
+      <section className="panel"><div className="section-title"><h2>销售趋势</h2><span>人民币 · 按自然日</span></div><SalesTrendChart data={data.trend} /></section>
+      <section className="panel"><div className="section-title"><h2>平台贡献</h2><span>支付销售额占比</span></div><PlatformChart data={data.contributions} /></section>
+    </div>
+    <section className="panel table-panel">
+      <div className="table-head"><h2>热销商品</h2><Link className="text-link" href={`/products?range=${preset}`}>查看全部 <ArrowRight size={14} /></Link></div>
+      <div className="table-wrap"><table className="data-table"><thead><tr><th>商品</th><th>主力平台</th><th className="numeric">销售件数</th><th className="numeric">支付销售额</th><th className="numeric">净销售额</th><th className="numeric">退款率</th></tr></thead><tbody>{data.products.slice(0, 6).map((product) => <tr key={product.id}><td><Link className="product-name" href={`/products/${product.id}?range=${preset}`}><strong>{product.name}</strong><span>{product.code}</span></Link></td><td><span className="badge">{product.leadingPlatform}</span></td><td className="numeric">{formatNumber(product.unitsSold)}</td><td className="numeric">{formatCurrency(product.gmv)}</td><td className="numeric">{formatCurrency(product.netSales)}</td><td className="numeric">{formatPercent(product.refundRate)}</td></tr>)}</tbody></table></div>
+    </section>
+    <div className="refund-callout"><span>退款健康度 · 当前退款金额占支付销售额</span><strong>{formatPercent(Number(data.kpis.find((item) => item.label === "退款率")?.value ?? 0))}</strong></div>
+  </div>;
 }
+
