@@ -24,6 +24,50 @@
 - 同步任务：独立 Worker / 定时任务
 - 部署：Web 与 Worker 分离部署，数据库使用托管 PostgreSQL
 
+## 本地启动
+
+### 前置要求
+
+- Node.js 22 LTS 或更新版本
+- pnpm 11 或更新版本
+- PostgreSQL 数据库连接串
+
+### 安装依赖
+
+```bash
+pnpm install
+```
+
+### 配置环境变量
+
+```bash
+cp .env.example .env.local
+```
+
+将 `.env.local` 中的 `DATABASE_URL` 替换为本地或托管 PostgreSQL 连接串。不要把真实 `.env*` 文件提交到仓库。
+
+### 生成 Prisma Client
+
+```bash
+pnpm prisma:generate
+```
+
+### 启动开发服务器
+
+```bash
+pnpm dev
+```
+
+默认访问 `http://localhost:3000`。
+
+### 质量检查
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm build
+```
+
 ## 数据流
 
 `平台授权/API -> 平台 Adapter -> 原始数据落库 -> 标准化 -> 商品映射 -> 指标聚合 -> Dashboard`
@@ -49,6 +93,6 @@
 
 ## 当前阶段
 
-仓库刚初始化。先完成可运行的 Mock MVP，再逐个平台接真实 API。
+Phase 1 已完成工程初始化：Next.js App Router、TypeScript、Tailwind CSS、ESLint 和 Prisma 基础 wiring 已就绪。后续阶段会继续实现数据模型、Mock Adapter、同步编排与 Dashboard 功能。
 
 > 安全提醒：仓库中永远不要提交真实平台账号、密码、Cookie、Access Token、Refresh Token、App Key、App Secret、数据库密码等敏感信息。
