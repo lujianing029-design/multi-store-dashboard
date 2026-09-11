@@ -7,4 +7,333 @@ datasource db {
   provider = "postgresql"
 }
 
-// Phase 1 intentionally only wires Prisma. Data models are added in the database-model phase.
+enum Platform {
+  DOUYIN
+  KUAISHOU
+  WECHAT
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  EXPIRED
+  ERROR
+  DISCONNECTED
+}
+
+enum SyncType {
+  PRODUCTS
+  ORDERS
+  REFUNDS
+  FULL
+}
+
+enum SyncStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+enum MappingStatus {
+  AUTO_MATCHED
+  MANUAL
+  UNMATCHED
+}
+
+model Shop {
+  id                   String              @id @default(uuid()) @db.Uuid
+  platform             Platform
+  externalShopId       String              @map("external_shop_id")
+  name                 String
+  timezone             String              @default("Asia/Shanghai")
+  currency             String              @default("CNY") @db.VarChar(3)
+  connectionStatus     ConnectionStatus    @default(DISCONNECTED) @map("connection_status")
+  lastSuccessfulSyncAt DateTime?           @map("last_successful_sync_at") @db.Timestamptz(3)
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  credential           PlatformCredential?
+  platformProducts     PlatformProduct[]
+  orders               Order[]
+  refunds              Refund[]
+  syncRuns             SyncRun[]
+  syncCursors          SyncCursor[]
+  dailyShopMetrics     DailyShopMetric[]
+  dailyProductMetrics  DailyProductMetric[]
+
+  @@unique([platform, externalShopId])
+  @@map("shops")
+}
+
+model PlatformCredential {
+  id                    String    @id @default(uuid()) @db.Uuid
+  shopId                String    @unique @map("shop_id") @db.Uuid
+  accessTokenEncrypted  String?   @map("access_token_encrypted")
+  refreshTokenEncrypted String?   @map("refresh_token_encrypted")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz(3)
+  scopes                Json?
+  metadata              Json?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  shop                  Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@map("platform_credentials")
+}
+
+model UnifiedProduct {
+  id                  String               @id @default(uuid()) @db.Uuid
+  merchantProductCode String?              @map("merchant_product_code")
+  name                String
+  brand               String?
+  category            String?
+  imageUrl            String?              @map("image_url")
+  active              Boolean              @default(true)
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  skus                UnifiedSku[]
+  platformProducts    PlatformProduct[]
+  orderItems          OrderItem[]
+  refundItems         RefundItem[]
+  dailyMetrics        DailyProductMetric[]
+
+  @@index([merchantProductCode])
+  @@map("unified_products")
+}
+
+model UnifiedSku {
+  id               String          @id @default(uuid()) @db.Uuid
+  unifiedProductId String          @map("unified_product_id") @db.Uuid
+  merchantSkuCode  String?         @map("merchant_sku_code")
+  name             String
+  attributes       Json?
+  costAmount       Decimal?        @map("cost_amount") @db.Decimal(18, 2)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  unifiedProduct   UnifiedProduct  @relation(fields: [unifiedProductId], references: [id], onDelete: Restrict)
+  platformSkus     PlatformSku[]
+  orderItems       OrderItem[]
+  refundItems      RefundItem[]
+
+  @@unique([unifiedProductId, merchantSkuCode])
+  @@map("unified_skus")
+}
+
+model PlatformProduct {
+  id                  String           @id @default(uuid()) @db.Uuid
+  shopId              String           @map("shop_id") @db.Uuid
+  externalProductId   String           @map("external_product_id")
+  title               String
+  merchantProductCode String?          @map("merchant_product_code")
+  imageUrl            String?          @map("image_url")
+  status              String?
+  rawPayload          Json?            @map("raw_payload")
+  unifiedProductId    String?          @map("unified_product_id") @db.Uuid
+  mappingStatus       MappingStatus    @default(UNMATCHED) @map("mapping_status")
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  shop                Shop             @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  unifiedProduct      UnifiedProduct?  @relation(fields: [unifiedProductId], references: [id], onDelete: SetNull)
+  skus                PlatformSku[]
+  orderItems          OrderItem[]
+  refundItems         RefundItem[]
+
+  @@unique([shopId, externalProductId])
+  @@index([unifiedProductId])
+  @@map("platform_products")
+}
+
+model PlatformSku {
+  id                String           @id @default(uuid()) @db.Uuid
+  platformProductId String           @map("platform_product_id") @db.Uuid
+  externalSkuId     String           @map("external_sku_id")
+  merchantSkuCode   String?          @map("merchant_sku_code")
+  title             String?
+  attributes        Json?
+  unifiedSkuId      String?          @map("unified_sku_id") @db.Uuid
+  rawPayload        Json?            @map("raw_payload")
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  platformProduct   PlatformProduct  @relation(fields: [platformProductId], references: [id], onDelete: Restrict)
+  unifiedSku        UnifiedSku?      @relation(fields: [unifiedSkuId], references: [id], onDelete: SetNull)
+  orderItems        OrderItem[]
+  refundItems       RefundItem[]
+
+  @@unique([platformProductId, externalSkuId])
+  @@index([unifiedSkuId])
+  @@map("platform_skus")
+}
+
+model Order {
+  id                String      @id @default(uuid()) @db.Uuid
+  shopId            String      @map("shop_id") @db.Uuid
+  externalOrderId   String      @map("external_order_id")
+  status            String
+  paidAt            DateTime?   @map("paid_at") @db.Timestamptz(3)
+  createdExternalAt DateTime?   @map("created_external_at") @db.Timestamptz(3)
+  updatedExternalAt DateTime?   @map("updated_external_at") @db.Timestamptz(3)
+  paymentAmount     Decimal     @map("payment_amount") @db.Decimal(18, 2)
+  buyerPaidAmount   Decimal?    @map("buyer_paid_amount") @db.Decimal(18, 2)
+  currency          String      @default("CNY") @db.VarChar(3)
+  rawPayload        Json?       @map("raw_payload")
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  shop              Shop        @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  items             OrderItem[]
+  refunds           Refund[]
+
+  @@unique([shopId, externalOrderId])
+  @@index([shopId, paidAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                  String            @id @default(uuid()) @db.Uuid
+  orderId             String            @map("order_id") @db.Uuid
+  externalOrderLineId String            @map("external_order_line_id")
+  platformProductId   String?           @map("platform_product_id") @db.Uuid
+  platformSkuId       String?           @map("platform_sku_id") @db.Uuid
+  unifiedProductId    String?           @map("unified_product_id") @db.Uuid
+  unifiedSkuId        String?           @map("unified_sku_id") @db.Uuid
+  quantity            Int
+  unitPaidAmount      Decimal?          @map("unit_paid_amount") @db.Decimal(18, 2)
+  linePaidAmount      Decimal           @map("line_paid_amount") @db.Decimal(18, 2)
+  merchantProductCode String?           @map("merchant_product_code")
+  merchantSkuCode     String?           @map("merchant_sku_code")
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  order               Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  platformProduct     PlatformProduct?  @relation(fields: [platformProductId], references: [id], onDelete: SetNull)
+  platformSku         PlatformSku?      @relation(fields: [platformSkuId], references: [id], onDelete: SetNull)
+  unifiedProduct      UnifiedProduct?   @relation(fields: [unifiedProductId], references: [id], onDelete: SetNull)
+  unifiedSku          UnifiedSku?       @relation(fields: [unifiedSkuId], references: [id], onDelete: SetNull)
+  refunds             Refund[]
+  refundItems         RefundItem[]
+
+  @@unique([orderId, externalOrderLineId])
+  @@map("order_items")
+}
+
+model Refund {
+  id                String        @id @default(uuid()) @db.Uuid
+  shopId            String        @map("shop_id") @db.Uuid
+  orderId           String?       @map("order_id") @db.Uuid
+  orderItemId       String?       @map("order_item_id") @db.Uuid
+  externalRefundId  String        @map("external_refund_id")
+  status            String
+  refundAmount      Decimal       @map("refund_amount") @db.Decimal(18, 2)
+  approvedAt        DateTime?     @map("approved_at") @db.Timestamptz(3)
+  updatedExternalAt DateTime?     @map("updated_external_at") @db.Timestamptz(3)
+  rawPayload        Json?         @map("raw_payload")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  shop              Shop          @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  order             Order?        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItem         OrderItem?    @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  items             RefundItem[]
+
+  @@unique([shopId, externalRefundId])
+  @@index([shopId, approvedAt])
+  @@map("refunds")
+}
+
+model RefundItem {
+  id                   String            @id @default(uuid()) @db.Uuid
+  refundId             String            @map("refund_id") @db.Uuid
+  externalRefundLineId String            @map("external_refund_line_id")
+  orderItemId          String?           @map("order_item_id") @db.Uuid
+  platformProductId    String?           @map("platform_product_id") @db.Uuid
+  platformSkuId        String?           @map("platform_sku_id") @db.Uuid
+  unifiedProductId     String?           @map("unified_product_id") @db.Uuid
+  unifiedSkuId         String?           @map("unified_sku_id") @db.Uuid
+  quantity             Int
+  refundAmount         Decimal           @map("refund_amount") @db.Decimal(18, 2)
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  refund               Refund            @relation(fields: [refundId], references: [id], onDelete: Restrict)
+  orderItem            OrderItem?        @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  platformProduct      PlatformProduct?  @relation(fields: [platformProductId], references: [id], onDelete: SetNull)
+  platformSku          PlatformSku?      @relation(fields: [platformSkuId], references: [id], onDelete: SetNull)
+  unifiedProduct       UnifiedProduct?   @relation(fields: [unifiedProductId], references: [id], onDelete: SetNull)
+  unifiedSku           UnifiedSku?       @relation(fields: [unifiedSkuId], references: [id], onDelete: SetNull)
+
+  @@unique([refundId, externalRefundLineId])
+  @@map("refund_items")
+}
+
+model SyncRun {
+  id              String      @id @default(uuid()) @db.Uuid
+  shopId          String?     @map("shop_id") @db.Uuid
+  platform        Platform
+  syncType        SyncType    @map("sync_type")
+  status          SyncStatus
+  rangeStart      DateTime?   @map("range_start") @db.Timestamptz(3)
+  rangeEnd        DateTime?   @map("range_end") @db.Timestamptz(3)
+  startedAt       DateTime    @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt      DateTime?   @map("finished_at") @db.Timestamptz(3)
+  recordsFetched  Int         @default(0) @map("records_fetched")
+  recordsUpserted Int         @default(0) @map("records_upserted")
+  errorCode       String?     @map("error_code")
+  errorMessage    String?     @map("error_message")
+  metadata        Json?
+  shop            Shop?       @relation(fields: [shopId], references: [id], onDelete: Restrict)
+
+  @@index([platform, startedAt(sort: Desc)])
+  @@map("sync_runs")
+}
+
+model SyncCursor {
+  id                          String    @id @default(uuid()) @db.Uuid
+  shopId                      String    @map("shop_id") @db.Uuid
+  resource                    String
+  cursor                      String?
+  lastSyncedExternalUpdatedAt DateTime? @map("last_synced_external_updated_at") @db.Timestamptz(3)
+  updatedAt                   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  shop                        Shop      @relation(fields: [shopId], references: [id], onDelete: Restrict)
+
+  @@unique([shopId, resource])
+  @@map("sync_cursors")
+}
+
+model DailyShopMetric {
+  id           String   @id @default(uuid()) @db.Uuid
+  date         DateTime @db.Date
+  shopId       String   @map("shop_id") @db.Uuid
+  paidGmv      Decimal  @default(0) @map("paid_gmv") @db.Decimal(18, 2)
+  netSales     Decimal  @default(0) @map("net_sales") @db.Decimal(18, 2)
+  paidOrders   Int      @default(0) @map("paid_orders")
+  unitsSold    Int      @default(0) @map("units_sold")
+  refundAmount Decimal  @default(0) @map("refund_amount") @db.Decimal(18, 2)
+  refundRate   Decimal  @default(0) @map("refund_rate") @db.Decimal(10, 4)
+  aov          Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Restrict)
+
+  @@unique([date, shopId])
+  @@map("daily_shop_metrics")
+}
+
+model DailyProductMetric {
+  id               String         @id @default(uuid()) @db.Uuid
+  date             DateTime       @db.Date
+  unifiedProductId String         @map("unified_product_id") @db.Uuid
+  scopeKey         String         @map("scope_key")
+  shopId           String?        @map("shop_id") @db.Uuid
+  platform         Platform?
+  paidGmv          Decimal        @default(0) @map("paid_gmv") @db.Decimal(18, 2)
+  netSales         Decimal        @default(0) @map("net_sales") @db.Decimal(18, 2)
+  paidOrders       Int            @default(0) @map("paid_orders")
+  unitsSold        Int            @default(0) @map("units_sold")
+  refundAmount     Decimal        @default(0) @map("refund_amount") @db.Decimal(18, 2)
+  refundRate       Decimal        @default(0) @map("refund_rate") @db.Decimal(10, 4)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  unifiedProduct   UnifiedProduct @relation(fields: [unifiedProductId], references: [id], onDelete: Restrict)
+  shop             Shop?          @relation(fields: [shopId], references: [id], onDelete: Restrict)
+
+  @@unique([date, unifiedProductId, scopeKey])
+  @@index([shopId, date])
+  @@map("daily_product_metrics")
+}
+

@@ -6,7 +6,7 @@ const eslintConfig = [
   ...nextTypeScript,
   {
     ignores: [
-      ".next/**",
+      ".next*/**",
       "node_modules/**",
       "out/**",
       "build/**",
@@ -17,3 +17,4 @@ const eslintConfig = [
 ];
 
 export default eslintConfig;
+

@@ -41,16 +41,23 @@ pnpm install
 ### 配置环境变量
 
 ```bash
-cp .env.example .env.local
+cp .env.example .env
 ```
 
-将 `.env.local` 中的 `DATABASE_URL` 替换为本地或托管 PostgreSQL 连接串。不要把真实 `.env*` 文件提交到仓库。
+将 `.env` 中的 `DATABASE_URL` 替换为本地或托管 PostgreSQL 连接串。不要把真实 `.env*` 文件提交到仓库。`APP_TIMEZONE` 控制默认经营时区；演示数据默认生成到当前 UTC 日期，也可以通过 `SEED_REFERENCE_DATE=YYYY-MM-DD` 固定数据截止日。
 
-### 生成 Prisma Client
+### 准备数据库
 
 ```bash
-pnpm prisma:generate
+pnpm db:validate
+pnpm db:generate
+pnpm db:migrate
+pnpm db:seed
 ```
+
+`db:migrate` 会应用 `prisma/migrations` 中的 PostgreSQL migration。`db:seed` 会生成 3 家演示店铺、10 个统一商品、30 个平台商品，以及最近 30 天的订单和退款。Seed 仅重建 `DEMO-` 前缀的交易数据，并对店铺与商品执行 upsert，可安全重复运行。
+
+需要重建本地开发数据库时运行 `pnpm db:reset`；该命令会清空当前数据库，只应对专用开发库使用。
 
 ### 启动开发服务器
 
@@ -66,6 +73,8 @@ pnpm dev
 pnpm lint
 pnpm typecheck
 pnpm build
+pnpm db:validate
+pnpm db:generate
 ```
 
 ## 数据流
@@ -93,6 +102,7 @@ pnpm build
 
 ## 当前阶段
 
-Phase 1 已完成工程初始化：Next.js App Router、TypeScript、Tailwind CSS、ESLint 和 Prisma 基础 wiring 已就绪。后续阶段会继续实现数据模型、Mock Adapter、同步编排与 Dashboard 功能。
+Phase 2 已完成 PostgreSQL/Prisma 交易数据模型、初始 migration 和可重复运行的 30 天演示数据 seed。后续阶段会继续实现 Mock Adapter、同步编排与 Dashboard 功能。
 
 > 安全提醒：仓库中永远不要提交真实平台账号、密码、Cookie、Access Token、Refresh Token、App Key、App Secret、数据库密码等敏感信息。
+
