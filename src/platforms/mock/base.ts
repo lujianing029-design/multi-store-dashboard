@@ -1,5 +1,6 @@
 import { Platform } from "@/generated/prisma";
 import { SyncError } from "@/platforms/security";
+import { fenToDecimalString } from "@/platforms/money";
 import type {
   AdapterPage,
   CommerceAdapter,
@@ -25,10 +26,6 @@ const catalog = [
   { code: "SPU-007", sku: "SKU-007-SET", name: "山茶花护手霜", priceFen: 7900 },
   { code: "SPU-009", sku: "SKU-009-CEDAR", name: "原木香薰礼盒", priceFen: 16900 }
 ] as const;
-
-function decimalFromFen(fen: number): string {
-  return `${Math.trunc(fen / 100)}.${String(fen % 100).padStart(2, "0")}`;
-}
 
 function page<T>(resource: SyncResource, records: T[], cursor: string | null): AdapterPage<T> {
   if (cursor === `${resource}:done`) {
@@ -110,8 +107,8 @@ export abstract class DeterministicMockAdapter implements CommerceAdapter {
         paidAt,
         createdExternalAt: new Date(paidAt.getTime() - 300_000),
         updatedExternalAt: paidAt,
-        paymentAmount: decimalFromFen(paidFen),
-        buyerPaidAmount: decimalFromFen(paidFen),
+        paymentAmount: fenToDecimalString(paidFen),
+        buyerPaidAmount: fenToDecimalString(paidFen),
         currency: "CNY",
         items: [
           {
@@ -119,8 +116,8 @@ export abstract class DeterministicMockAdapter implements CommerceAdapter {
             externalProductId: `${this.config.externalPrefix}-PRODUCT-${(index % catalog.length) + 1}`,
             externalSkuId: `${this.config.externalPrefix}-SKU-${(index % catalog.length) + 1}`,
             quantity,
-            unitPaidAmount: decimalFromFen(product.priceFen),
-            linePaidAmount: decimalFromFen(paidFen),
+            unitPaidAmount: fenToDecimalString(product.priceFen),
+            linePaidAmount: fenToDecimalString(paidFen),
             merchantProductCode: product.code,
             merchantSkuCode: product.sku
           }
@@ -139,7 +136,7 @@ export abstract class DeterministicMockAdapter implements CommerceAdapter {
         const orderIndex = (refundIndex + 1) * this.config.refundEvery - 1;
         const product = catalog[orderIndex % catalog.length];
         const quantity = orderIndex % 3 === 0 ? 2 : 1;
-        const refundAmount = decimalFromFen(product.priceFen * quantity);
+        const refundAmount = fenToDecimalString(product.priceFen * quantity);
         const externalOrderId = `${this.config.externalPrefix}-ORDER-${orderIndex + 1}`;
         const externalOrderLineId = `${externalOrderId}-LINE-1`;
 
