@@ -337,3 +337,249 @@ model DailyProductMetric {
   @@map("daily_product_metrics")
 }
 
+enum VideoStatus {
+  PENDING
+  READY
+  FAILED
+  ARCHIVED
+}
+
+enum ContentStatus {
+  DRAFT
+  READY
+  ARCHIVED
+}
+
+enum PublishTaskStatus {
+  DRAFT
+  SCHEDULED
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum PublishTargetStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum PublishJobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  RETRY_WAIT
+  CANCELLED
+}
+
+enum PublishResultStatus {
+  SUCCESS
+  FAILED
+}
+
+enum PublishLogLevel {
+  INFO
+  WARN
+  ERROR
+}
+
+enum ScheduleType {
+  ONCE
+  CRON
+}
+
+model User {
+  id              String          @id @default(uuid()) @db.Uuid
+  email           String          @unique
+  displayName     String?         @map("display_name")
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  videos          Video[]
+  contents        Content[]
+  publishTasks    PublishTask[]   @relation("PublishTaskCreator")
+  schedules       Schedule[]
+  platformAccounts PlatformAccount[]
+
+  @@map("users")
+}
+
+model PlatformAccount {
+  id                   String             @id @default(uuid()) @db.Uuid
+  userId               String?            @map("user_id") @db.Uuid
+  platform             Platform
+  externalAccountId    String             @map("external_account_id")
+  displayName          String             @map("display_name")
+  status               ConnectionStatus   @default(DISCONNECTED)
+  credentialRef        String?            @map("credential_ref")
+  accessTokenExpiresAt DateTime?          @map("access_token_expires_at") @db.Timestamptz(3)
+  settings             Json?
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user                 User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  publishTargets       PublishTarget[]
+
+  @@unique([platform, externalAccountId])
+  @@index([userId, status])
+  @@map("platform_accounts")
+}
+
+model Video {
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String?      @map("user_id") @db.Uuid
+  storageKey  String       @unique @map("storage_key")
+  fileName    String       @map("file_name")
+  mimeType    String       @map("mime_type")
+  byteSize    BigInt       @map("byte_size")
+  durationMs  Int?         @map("duration_ms")
+  width       Int?
+  height      Int?
+  sha256      String
+  status      VideoStatus  @default(PENDING)
+  metadata    Json?
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  contents    Content[]
+
+  @@index([userId, status])
+  @@index([sha256])
+  @@map("videos")
+}
+
+model Content {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String?         @map("user_id") @db.Uuid
+  videoId     String?         @map("video_id") @db.Uuid
+  title       String
+  body        String?         @db.Text
+  hashtags    Json?
+  coverUrl    String?         @map("cover_url")
+  status      ContentStatus   @default(DRAFT)
+  metadata    Json?
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  video       Video?          @relation(fields: [videoId], references: [id], onDelete: SetNull)
+  publishTasks PublishTask[]
+  schedules   Schedule[]
+
+  @@index([userId, status])
+  @@index([videoId])
+  @@map("contents")
+}
+
+model PublishTask {
+  id             String            @id @default(uuid()) @db.Uuid
+  contentId      String            @map("content_id") @db.Uuid
+  createdById    String?           @map("created_by_id") @db.Uuid
+  status         PublishTaskStatus @default(DRAFT)
+  scheduledFor   DateTime?         @map("scheduled_for") @db.Timestamptz(3)
+  idempotencyKey String             @unique @map("idempotency_key")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  content        Content            @relation(fields: [contentId], references: [id], onDelete: Restrict)
+  createdBy      User?              @relation("PublishTaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  targets        PublishTarget[]
+  logs           PublishLog[]
+  schedules      Schedule[]
+
+  @@index([status, scheduledFor])
+  @@map("publish_tasks")
+}
+
+model PublishTarget {
+  id                String              @id @default(uuid()) @db.Uuid
+  publishTaskId     String              @map("publish_task_id") @db.Uuid
+  platformAccountId String              @map("platform_account_id") @db.Uuid
+  status            PublishTargetStatus @default(PENDING)
+  platformPayload   Json?               @map("platform_payload")
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  publishTask       PublishTask         @relation(fields: [publishTaskId], references: [id], onDelete: Cascade)
+  platformAccount   PlatformAccount     @relation(fields: [platformAccountId], references: [id], onDelete: Restrict)
+  jobs              PublishJob[]
+
+  @@unique([publishTaskId, platformAccountId])
+  @@index([platformAccountId, status])
+  @@map("publish_targets")
+}
+
+model PublishJob {
+  id              String           @id @default(uuid()) @db.Uuid
+  publishTargetId String           @map("publish_target_id") @db.Uuid
+  attemptNo       Int              @default(1) @map("attempt_no")
+  status          PublishJobStatus @default(PENDING)
+  runAfter        DateTime?        @map("run_after") @db.Timestamptz(3)
+  startedAt       DateTime?        @map("started_at") @db.Timestamptz(3)
+  finishedAt      DateTime?        @map("finished_at") @db.Timestamptz(3)
+  errorCode       String?          @map("error_code")
+  errorMessage    String?          @map("error_message")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  publishTarget   PublishTarget    @relation(fields: [publishTargetId], references: [id], onDelete: Cascade)
+  result          PublishResult?
+  logs            PublishLog[]
+
+  @@unique([publishTargetId, attemptNo])
+  @@index([status, runAfter])
+  @@map("publish_jobs")
+}
+
+model PublishResult {
+  id                  String              @id @default(uuid()) @db.Uuid
+  publishJobId        String              @unique @map("publish_job_id") @db.Uuid
+  status              PublishResultStatus
+  remotePublicationId String?             @map("remote_publication_id")
+  remoteUrl           String?             @map("remote_url")
+  responseSummary     Json?               @map("response_summary")
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishJob          PublishJob          @relation(fields: [publishJobId], references: [id], onDelete: Cascade)
+
+  @@index([remotePublicationId])
+  @@map("publish_results")
+}
+
+model PublishLog {
+  id            String          @id @default(uuid()) @db.Uuid
+  publishTaskId String          @map("publish_task_id") @db.Uuid
+  publishJobId  String?         @map("publish_job_id") @db.Uuid
+  level         PublishLogLevel @default(INFO)
+  event         String
+  message       String
+  metadata      Json?
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishTask   PublishTask     @relation(fields: [publishTaskId], references: [id], onDelete: Cascade)
+  publishJob    PublishJob?     @relation(fields: [publishJobId], references: [id], onDelete: SetNull)
+
+  @@index([publishTaskId, createdAt])
+  @@index([publishJobId, createdAt])
+  @@map("publish_logs")
+}
+
+model Schedule {
+  id            String       @id @default(uuid()) @db.Uuid
+  userId        String?      @map("user_id") @db.Uuid
+  contentId     String       @map("content_id") @db.Uuid
+  publishTaskId String?      @map("publish_task_id") @db.Uuid
+  type          ScheduleType
+  cronExpression String?     @map("cron_expression")
+  runAt         DateTime?    @map("run_at") @db.Timestamptz(3)
+  timezone      String       @default("Asia/Shanghai")
+  enabled       Boolean      @default(true)
+  nextRunAt     DateTime?    @map("next_run_at") @db.Timestamptz(3)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  content       Content      @relation(fields: [contentId], references: [id], onDelete: Restrict)
+  publishTask   PublishTask? @relation(fields: [publishTaskId], references: [id], onDelete: SetNull)
+
+  @@index([enabled, nextRunAt])
+  @@map("schedules")
+}
