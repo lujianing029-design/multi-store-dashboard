@@ -13,6 +13,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ r
   const data = await getDashboardSnapshot(preset);
   return <div className="page">
     <PageHeader title="经营总览" description={data.rangeLabel} updatedAt={data.updatedAt} actions={<RangeFilter value={preset} />} />
+    <section className="panel" style={{ marginBottom: 20 }}>
+      <div className="section-title"><h2>今日发布概览</h2><span>演示模式 · 发布任务尚未启用 Worker</span></div>
+      <div className="detail-summary">
+        {[["今日上传", "0"], ["等待发布", "0"], ["发布中", "0"], ["成功", "0"], ["失败", "0"]].map(([label, value]) => (
+          <div className="summary-cell" key={label}><span>{label}</span><strong>{value}</strong></div>
+        ))}
+      </div>
+      <div className="table-wrap"><table className="data-table"><thead><tr><th>最近任务</th><th>状态</th><th>计划时间</th></tr></thead><tbody><tr><td colSpan={3} style={{ textAlign: "center", color: "#69756f" }}>暂无发布任务。请在后续 Issue 接入任务创建与 Worker。</td></tr></tbody></table></div>
+    </section>
     <KpiGrid items={data.kpis} />
     <div className="dashboard-grid">
       <section className="panel"><div className="section-title"><h2>销售趋势</h2><span>人民币 · 按自然日</span></div><SalesTrendChart data={data.trend} /></section>
