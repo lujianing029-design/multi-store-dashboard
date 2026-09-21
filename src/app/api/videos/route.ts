@@ -14,7 +14,7 @@ const asDuration = (value: FormDataEntryValue | null) => {
 export async function GET() {
   const videos = await prisma.video.findMany({
     orderBy: { createdAt: "desc" },
-    select: { id: true, fileName: true, mimeType: true, byteSize: true, durationMs: true, coverKey: true, status: true, createdAt: true }
+    select: { id: true, fileName: true, mimeType: true, byteSize: true, durationMs: true, coverKey: true, status: true, createdAt: true, contents: { select: { id: true, title: true } } }
   });
   return NextResponse.json(videos.map((video) => ({ ...video, byteSize: video.byteSize.toString() })));
 }
@@ -48,7 +48,8 @@ export async function POST(request: Request) {
         durationMs: asDuration(form.get("durationMs")),
         coverKey,
         sha256: crypto.randomUUID(),
-        status: "READY"
+        status: "READY",
+        contents: { create: { title: file.name.replace(/\\.[^.]+$/, ""), status: "DRAFT" } }
       },
       select: { id: true, fileName: true, mimeType: true, byteSize: true, durationMs: true, coverKey: true, status: true, createdAt: true }
     });
