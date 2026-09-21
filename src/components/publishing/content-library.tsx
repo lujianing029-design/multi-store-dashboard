@@ -33,11 +33,13 @@ export function ContentLibrary() {
     if (selected?.id === video.id) setSelected(null);
   }
   async function edit(video: LibraryVideo) {
-    const fileName = prompt("编辑文件名", video.fileName);
-    if (!fileName || fileName === video.fileName) return;
-    const response = await fetch(`/api/videos/${video.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName }) });
+    const content = video.contents[0];
+    if (!content) { setMessage("该视频还没有内容草稿。"); return; }
+    const title = prompt("编辑内容标题", content.title);
+    if (!title || title === content.title) return;
+    const response = await fetch(`/api/contents/${content.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
     if (!response.ok) { setMessage("保存失败。"); return; }
-    setVideos((current) => current.map((item) => item.id === video.id ? { ...item, fileName } : item));
+    setVideos((current) => current.map((item) => item.id === video.id ? { ...item, contents: [{ ...content, title }] } : item));
   }
   async function createTask(video: LibraryVideo) {
     const contentId = video.contents[0]?.id;
@@ -57,7 +59,7 @@ export function ContentLibrary() {
             {video.coverKey ? <img src={`/api/videos/${video.id}/cover`} alt="" /> : <Video size={34} />}
             <span>预览视频</span>
           </button>
-          <div className="video-card-body"><strong>{video.fileName}</strong><small>{size(video.byteSize)} · {duration(video.durationMs)} · {new Date(video.createdAt).toLocaleString("zh-CN")}</small>
+          <div className="video-card-body"><strong>{video.contents[0]?.title ?? video.fileName}</strong><small>{size(video.byteSize)} · {duration(video.durationMs)} · {new Date(video.createdAt).toLocaleString("zh-CN")}</small>
             <div className="video-actions"><button type="button" className="ghost-button" onClick={() => edit(video)}>编辑</button><button type="button" className="ghost-button" onClick={() => createTask(video)}>创建发布任务</button><button type="button" className="ghost-button danger" onClick={() => remove(video)}><Trash2 size={14} />删除</button></div>
           </div>
         </article>)}
