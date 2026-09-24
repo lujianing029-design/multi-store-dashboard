@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { runPublishJob } from "@/lib/publishing/worker";
 
 export const runtime = "nodejs";
 const supportedPlatforms = new Set(["DOUYIN", "KUAISHOU", "XIAOHONGSHU", "WECHAT"]);
@@ -40,24 +41,12 @@ export async function POST(request: Request) {
     const content = await tx.content.create({ data: { videoId: video.id, title, body: body || null, hashtags: tags, status: "READY" } });
     const task = await tx.publishTask.create({
       data: { contentId: content.id, status: scheduledFor ? "SCHEDULED" : "QUEUED", scheduledFor, idempotencyKey: crypto.randomUUID(),
-        targets: { create: accounts.map((account) => ({ platformAccountId: account.id, status: scheduledFor ? "PENDING" : "QUEUED", platformPayload: { dryRun: true, sauAccountName: (account.settings as { sauAccountName: string }).sauAccountName }, jobs: { create: { status: scheduledFor ? "PENDING" : "RUNNING", startedAt: scheduledFor ? null : now } } })) } },
+        targets: { create: accounts.map((account) => ({ platformAccountId: account.id, status: scheduledFor ? "PENDING" : "QUEUED", platformPayload: { dryRun: true, sauAccountName: (account.settings as { sauAccountName: string }).sauAccountName }, jobs: { create: { status: "PENDING", runAfter: scheduledFor ?? now } } })) } },
       include: { targets: { include: { jobs: true } } }
     });
-    await tx.publishLog.create({ data: { publishTaskId: task.id, level: "INFO", event: "TASK_CREATED", message: "Dry Run 发布任务已创建；未执行 sau。" } });
-    if (!scheduledFor) {
-      for (const target of task.targets) {
-        const job = target.jobs[0];
-        await tx.publishJob.update({ where: { id: job.id }, data: { status: "SUCCEEDED", finishedAt: new Date() } });
-        await tx.publishTarget.update({ where: { id: target.id }, data: { status: "SUCCEEDED" } });
-        await tx.publishResult.create({ data: { publishJobId: job.id, status: "SUCCESS", responseSummary: { dryRun: true, message: "Mock/Dry Run completed; sau was not invoked." } } });
-        await tx.publishLog.createMany({ data: [
-          { publishTaskId: task.id, publishJobId: job.id, level: "INFO", event: "DRY_RUN_STARTED", message: "Dry Run started; no external command executed." },
-          { publishTaskId: task.id, publishJobId: job.id, level: "INFO", event: "DRY_RUN_SUCCEEDED", message: "Dry Run completed independently for this platform." }
-        ] });
-      }
-      await tx.publishTask.update({ where: { id: task.id }, data: { status: "SUCCEEDED" } });
-    }
+    await tx.publishLog.create({ data: { publishTaskId: task.id, level: "INFO", event: "TASK_CREATED", message: "Dry Run 发布任务已创建；sau 将仅以 Dry Run 模式调用。" } });
     return task;
   });
-  return NextResponse.json({ taskId: task.id, dryRun: true, message: scheduledFor ? "定时 Dry Run 任务已创建。" : "Dry Run 任务已完成；未调用 sau。" }, { status: 201 });
+  if (!scheduledFor) await Promise.allSettled(task.targets.map((target) => runPublishJob(target.jobs[0].id)));
+  return NextResponse.json({ taskId: task.id, dryRun: true, message: scheduledFor ? "定时 Dry Run 任务已创建。" : "Dry Run 已逐平台运行完成；sau 未进行真实发布。" }, { status: 201 });
 }
