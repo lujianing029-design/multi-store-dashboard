@@ -35,7 +35,7 @@ class OpenAiCopyProvider implements AiCopyProvider {
     if (!Array.isArray(output)) throw new Error("AI 服务未返回正文。");
     const text = output.flatMap((item) => {
       if (!item || typeof item !== "object" || !("content" in item) || !Array.isArray(item.content)) return [];
-      return item.content.filter((part: unknown) => part && typeof part === "object" && "type" in part && part.type === "output_text" && "text" in part && typeof part.text === "string").map((part: { text: string }) => part.text);
+      return item.content.flatMap((part: unknown) => part && typeof part === "object" && "type" in part && part.type === "output_text" && "text" in part && typeof part.text === "string" ? [part.text] : []);
     }).join("");
     try { return normalizeDraft(JSON.parse(text)); }
     catch { throw new Error("AI 服务返回的文案格式不正确，请重试或手动填写。"); }
