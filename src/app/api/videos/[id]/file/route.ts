@@ -10,7 +10,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!video) return new NextResponse("Not found", { status: 404 });
   const data = await getStorageAdapter().read(video.storageKey);
   if (!data) return new NextResponse("Not found", { status: 404 });
-  return new NextResponse(data, {
+  return new NextResponse(new Uint8Array(data).buffer, {
     headers: {
       "Content-Type": video.mimeType,
       "Content-Disposition": `inline; filename="${encodeURIComponent(video.fileName)}"`,
