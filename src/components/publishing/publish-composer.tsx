@@ -30,11 +30,15 @@ export function PublishComposer() {
   const [submitting, setSubmitting] = useState(false);
 
   const loadOptions = useCallback(() => {
-    fetch("/api/publish-options").then((response) => response.json()).then((value: Options) => {
+    fetch("/api/publish-options").then((response) => {
+      if (!response.ok) throw new Error("无法加载视频或账号信息。");
+      return response.json();
+    }).then((value: Options) => {
+      if (!Array.isArray(value.videos) || !Array.isArray(value.accounts)) throw new Error("视频或账号数据格式错误。");
       setOptions(value);
       const requested = new URLSearchParams(window.location.search).get("videoId");
       if (requested && value.videos.some((item) => item.id === requested)) setVideoId((current) => current || requested);
-    }).catch(() => setMessage("无法加载视频或账号信息。"));
+    }).catch((error) => setMessage(error instanceof Error ? error.message : "无法加载视频或账号信息。"));
   }, []);
   useEffect(() => {
     loadOptions();
