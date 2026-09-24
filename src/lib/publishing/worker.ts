@@ -4,8 +4,9 @@ import path from "node:path";
 import { prisma } from "@/lib/db/prisma";
 import { getStorageAdapter } from "@/lib/storage";
 import { SocialAutoUploadAdapter } from "@/platforms/social-auto-upload/adapter";
+import type { CopyDraft } from "@/lib/ai-copy/types";
 
-type Payload = { dryRun?: boolean; sauAccountName?: string };
+type Payload = { dryRun?: boolean; sauAccountName?: string; copy?: CopyDraft };
 
 function payload(value: unknown): Payload {
   return typeof value === "object" && value !== null ? value as Payload : {};
@@ -37,7 +38,8 @@ export async function runPublishJob(jobId: string) {
     const stagedFile = path.join(directory, "video" + path.extname(video.fileName));
     await writeFile(stagedFile, data);
     const adapter = new SocialAutoUploadAdapter();
-    const result = await adapter.publish({ platform: account.platform, accountName: config.sauAccountName, file: stagedFile, title: task.content.title, description: task.content.body ?? "", tags: Array.isArray(task.content.hashtags) ? task.content.hashtags.filter((tag): tag is string => typeof tag === "string") : [], dryRun: config.dryRun !== false });
+    const copy = config.copy;
+    const result = await adapter.publish({ platform: account.platform, accountName: config.sauAccountName, file: stagedFile, title: copy?.title ?? task.content.title, description: copy?.body ?? task.content.body ?? "", tags: copy?.tags ?? (Array.isArray(task.content.hashtags) ? task.content.hashtags.filter((tag): tag is string => typeof tag === "string") : []), dryRun: config.dryRun !== false });
     const human = result.state === "HUMAN_ACTION_REQUIRED";
     const success = result.state === "SUCCEEDED" || result.state === "DRY_RUN";
     await prisma.$transaction([
