@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
 
+export const dynamic = "force-dynamic";
+
 const platformName: Record<string, string> = {
   DOUYIN: "抖音",
   KUAISHOU: "快手",
