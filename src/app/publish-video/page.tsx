@@ -1,5 +1,5 @@
-import { VideoUpload } from "@/components/publishing/video-upload";
+import { PublishComposer } from "@/components/publishing/publish-composer";
 
 export default function PublishVideoPage() {
-  return <VideoUpload />;
+  return <PublishComposer />;
 }
