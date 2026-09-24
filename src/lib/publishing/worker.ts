@@ -54,6 +54,16 @@ export async function runPublishJob(jobId: string) {
       await prisma.publishTask.update({ where: { id: task.id }, data: { status: "RUNNING" } });
     }
     return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "未知发布错误。";
+    await prisma.$transaction([
+      prisma.publishJob.update({ where: { id: job.id }, data: { status: "FAILED", finishedAt: new Date(), errorMessage: message } }),
+      prisma.publishTarget.update({ where: { id: target.id }, data: { status: "FAILED" } }),
+      prisma.publishLog.create({ data: { publishTaskId: task.id, publishJobId: job.id, level: "ERROR", event: "PUBLISH_FAILED", message } })
+    ]);
+    const unfinished = await prisma.publishTarget.count({ where: { publishTaskId: task.id, status: { in: ["PENDING", "QUEUED", "RUNNING"] } } });
+    if (unfinished === 0) await prisma.publishTask.update({ where: { id: task.id }, data: { status: "FAILED" } });
+    throw error;
   } finally {
     if (directory) await rm(directory, { recursive: true, force: true });
   }
