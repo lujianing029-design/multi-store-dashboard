@@ -17,8 +17,8 @@ import { prisma } from "@/lib/db/prisma";
 import { periodChange } from "@/lib/metrics/calculator";
 import { getZonedRange, type DatePreset } from "@/lib/metrics/timezone";
 
-const platformNames = { DOUYIN: "抖音", KUAISHOU: "快手", WECHAT: "视频号" } as const;
-const platformColors = { DOUYIN: "#ef4444", KUAISHOU: "#f59e0b", WECHAT: "#10b981" } as const;
+const platformNames = { DOUYIN: "抖音", KUAISHOU: "快手", XIAOHONGSHU: "小红书", WECHAT: "视频号" } as const;
+const platformColors = { DOUYIN: "#ef4444", KUAISHOU: "#f59e0b", XIAOHONGSHU: "#e85c83", WECHAT: "#10b981" } as const;
 
 export function isDemoMode() {
   return process.env.DASHBOARD_DATA_MODE !== "database";
