@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { runPublishJob } from "@/lib/publishing/worker";
+import { normalizeDraft } from "@/lib/ai-copy/types";
+import { adaptAllPlatforms } from "@/lib/ai-copy/content-adapters";
 
 export const runtime = "nodejs";
 const supportedPlatforms = new Set(["DOUYIN", "KUAISHOU", "XIAOHONGSHU", "WECHAT"]);
@@ -36,12 +38,22 @@ export async function POST(request: Request) {
   const unmapped = accounts.some((account) => !(typeof account.settings === "object" && account.settings !== null && "sauAccountName" in account.settings && typeof account.settings.sauAccountName === "string"));
   if (unmapped) return NextResponse.json({ error: "所选账号缺少 sauAccountName 映射。" }, { status: 422 });
 
+  const master = { title, body, tags };
+  let copies = adaptAllPlatforms(master);
+  if (input.platformCopies && typeof input.platformCopies === "object") {
+    try {
+      const supplied = input.platformCopies as Record<string, unknown>;
+      copies = Object.fromEntries(Object.entries(copies).map(([platform, fallback]) => [platform, supplied[platform] ? normalizeDraft(supplied[platform]) : fallback])) as typeof copies;
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "平台文案格式错误。" }, { status: 422 });
+    }
+  }
   const now = new Date();
   const task = await prisma.$transaction(async (tx) => {
     const content = await tx.content.create({ data: { videoId: video.id, title, body: body || null, hashtags: tags, status: "READY" } });
     const task = await tx.publishTask.create({
       data: { contentId: content.id, status: scheduledFor ? "SCHEDULED" : "QUEUED", scheduledFor, idempotencyKey: crypto.randomUUID(),
-        targets: { create: accounts.map((account) => ({ platformAccountId: account.id, status: scheduledFor ? "PENDING" : "QUEUED", platformPayload: { dryRun: true, sauAccountName: (account.settings as { sauAccountName: string }).sauAccountName }, jobs: { create: { status: "PENDING", runAfter: scheduledFor ?? now } } })) } },
+        targets: { create: accounts.map((account) => ({ platformAccountId: account.id, status: scheduledFor ? "PENDING" : "QUEUED", platformPayload: { dryRun: true, sauAccountName: (account.settings as { sauAccountName: string }).sauAccountName, copy: copies[account.platform] }, jobs: { create: { status: "PENDING", runAfter: scheduledFor ?? now } } })) } },
       include: { targets: { include: { jobs: true } } }
     });
     await tx.publishLog.create({ data: { publishTaskId: task.id, level: "INFO", event: "TASK_CREATED", message: "Dry Run 发布任务已创建；sau 将仅以 Dry Run 模式调用。" } });
