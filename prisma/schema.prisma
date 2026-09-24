@@ -365,6 +365,7 @@ enum PublishTargetStatus {
   PENDING
   QUEUED
   RUNNING
+  HUMAN_ACTION_REQUIRED
   SUCCEEDED
   FAILED
   CANCELLED
@@ -373,6 +374,7 @@ enum PublishTargetStatus {
 enum PublishJobStatus {
   PENDING
   RUNNING
+  HUMAN_ACTION_REQUIRED
   SUCCEEDED
   FAILED
   RETRY_WAIT
