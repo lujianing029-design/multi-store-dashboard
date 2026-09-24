@@ -26,3 +26,8 @@ SAU_COMMAND=C:\\Users\\Administrator\\social-auto-upload\\.venv\\Scripts\\sau.ex
 ## 已知限制
 
 当前 sau CLI 不稳定地返回作品 ID / URL，因此 `PublishResult.remoteUrl` 允许为空。系统不会为获取 URL 使用额外爬取。
+
+
+## 定时 Dry Run
+
+定时任务保存在 `PublishTask.scheduledFor` 与 `PublishJob.runAfter`。部署环境的受信任调度器应调用 `runDueDryRunJobs()`（`src/lib/publishing/scheduler.ts`）；它只会处理后台创建的 Dry Run 任务，仍不会打开浏览器或真实发布。
