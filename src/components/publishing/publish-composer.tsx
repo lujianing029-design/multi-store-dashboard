@@ -19,6 +19,8 @@ export function PublishComposer() {
   const [brief, setBrief] = useState({ productName: "", sellingPoints: "", audience: "", requirements: "" });
   const [master, setMaster] = useState<Copy>({ title: "", body: "", tags: [] });
   const [copies, setCopies] = useState<Copies | null>(null);
+  const [masterTagsText, setMasterTagsText] = useState("");
+  const [copyTagsText, setCopyTagsText] = useState<Record<Platform, string>>({ DOUYIN: "", KUAISHOU: "", XIAOHONGSHU: "", WECHAT: "" });
   const [provider, setProvider] = useState<"mock" | "openai" | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [scheduledFor, setScheduledFor] = useState("");
@@ -54,7 +56,9 @@ export function PublishComposer() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "文案生成失败。");
       setMaster(result.master);
+      setMasterTagsText(result.master.tags.join("，"));
       setCopies(result.platforms);
+      setCopyTagsText(Object.fromEntries(platforms.map((platform) => [platform, result.platforms[platform].tags.join("，")])) as Record<Platform, string>);
       setProvider(result.provider);
       setConfirmed(false);
       setMessage(result.provider === "mock" ? "已生成 Mock 示例文案；当前环境未配置真实 AI 服务，请核对并编辑。" : "AI 文案已生成，请核对并编辑。");
@@ -70,6 +74,7 @@ export function PublishComposer() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "平台文案适配失败。");
       setCopies(result.platforms);
+      setCopyTagsText(Object.fromEntries(platforms.map((platform) => [platform, result.platforms[platform].tags.join("，")])) as Record<Platform, string>);
       setConfirmed(false);
       setMessage("四平台文案已按主文案重新适配。");
     } catch (error) { setMessage(error instanceof Error ? error.message : "平台文案适配失败。"); }
@@ -78,6 +83,7 @@ export function PublishComposer() {
   function restoreMaster(platform: Platform) {
     if (!copies) return;
     changeCopy(platform, { title: master.title, body: master.body, tags: [...master.tags] });
+    setCopyTagsText((value) => ({ ...value, [platform]: masterTagsText }));
   }
 
   async function submit() {
@@ -114,7 +120,7 @@ export function PublishComposer() {
       <div className="section-title"><h2>主文案</h2><span>所有字段可手动编辑</span></div>
       <label className="form-label">主标题<input value={master.title} maxLength={100} onChange={(event) => changeMaster({ title: event.target.value })} placeholder="请输入标题" /></label>
       <label className="form-label">主正文<textarea value={master.body} onChange={(event) => changeMaster({ body: event.target.value })} placeholder="请输入正文" rows={5} /></label>
-      <label className="form-label">话题标签<input value={master.tags.join("，")} onChange={(event) => changeMaster({ tags: splitTags(event.target.value) })} placeholder="例如：夏季穿搭，休闲短裤" /></label>
+      <label className="form-label">话题标签<input value={masterTagsText} onChange={(event) => { setMasterTagsText(event.target.value); changeMaster({ tags: splitTags(event.target.value) }); }} placeholder="例如：夏季穿搭，休闲短裤" /></label>
       <button type="button" className="ghost-button" onClick={adaptMaster}>用主文案生成四平台草稿</button>
     </section>
     <section className="panel publish-composer">
@@ -124,7 +130,7 @@ export function PublishComposer() {
         <div className="section-title"><h2>{labels[platform]}</h2><button type="button" className="ghost-button" onClick={() => restoreMaster(platform)}>恢复主文案</button></div>
         <label className="form-label">标题<input value={copies[platform].title} onChange={(event) => changeCopy(platform, { title: event.target.value })} /></label>
         <label className="form-label">正文<textarea rows={5} value={copies[platform].body} onChange={(event) => changeCopy(platform, { body: event.target.value })} /></label>
-        <label className="form-label">标签<input value={copies[platform].tags.join("，")} onChange={(event) => changeCopy(platform, { tags: splitTags(event.target.value) })} /></label>
+        <label className="form-label">标签<input value={copyTagsText[platform]} onChange={(event) => { setCopyTagsText((value) => ({ ...value, [platform]: event.target.value })); changeCopy(platform, { tags: splitTags(event.target.value) }); }} /></label>
       </div>)}</div>}
     </section>
     <section className="panel publish-composer"><div className="section-title"><h2>3. 选择平台与账号</h2><span>账号状态来自本地绑定配置</span></div>
