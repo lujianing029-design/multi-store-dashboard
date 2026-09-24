@@ -17,12 +17,12 @@ export function ContentLibrary() {
   const [selected, setSelected] = useState<LibraryVideo | null>(null);
   const [message, setMessage] = useState("");
 
-  const load = async () => {
-    const response = await fetch("/api/videos");
-    if (!response.ok) { setMessage("内容库暂不可用，请确认数据库迁移已执行。"); return; }
-    setVideos(await response.json());
-  };
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    fetch("/api/videos").then(async (response) => {
+      if (!response.ok) throw new Error("内容库暂不可用，请确认数据库迁移已执行。");
+      setVideos(await response.json());
+    }).catch((error) => setMessage(error instanceof Error ? error.message : "内容库加载失败。"));
+  }, []);
   const filtered = useMemo(() => videos.filter((video) => video.fileName.toLowerCase().includes(query.toLowerCase())), [videos, query]);
 
   async function remove(video: LibraryVideo) {
@@ -41,11 +41,8 @@ export function ContentLibrary() {
     if (!response.ok) { setMessage("保存失败。"); return; }
     setVideos((current) => current.map((item) => item.id === video.id ? { ...item, contents: [{ ...content, title }] } : item));
   }
-  async function createTask(video: LibraryVideo) {
-    const contentId = video.contents[0]?.id;
-    if (!contentId) { setMessage("该视频还没有内容草稿。"); return; }
-    const response = await fetch("/api/publish-tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contentId }) });
-    setMessage(response.ok ? "已创建草稿发布任务；请在发布任务中补充目标账号。" : "创建发布任务失败。");
+  function createTask(video: LibraryVideo) {
+    window.location.href = `/publish-video?videoId=${encodeURIComponent(video.id)}`;
   }
 
   return <div className="page">
