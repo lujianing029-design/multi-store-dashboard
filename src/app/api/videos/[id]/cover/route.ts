@@ -10,5 +10,5 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!video?.coverKey) return new NextResponse("Not found", { status: 404 });
   const data = await getStorageAdapter().read(video.coverKey);
   if (!data) return new NextResponse("Not found", { status: 404 });
-  return new NextResponse(data, { headers: { "Cache-Control": "private, max-age=3600" } });
+  return new NextResponse(new Uint8Array(data).buffer, { headers: { "Cache-Control": "private, max-age=3600" } });
 }
