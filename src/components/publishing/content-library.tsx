@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, Trash2, Video } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 type LibraryVideo = {
@@ -12,6 +13,7 @@ const size = (value: string) => `${(Number(value) / 1024 / 1024).toFixed(1)} MB`
 const duration = (value: number | null) => value === null ? "处理中" : `${Math.floor(value / 60000)}:${String(Math.floor(value / 1000) % 60).padStart(2, "0")}`;
 
 export function ContentLibrary() {
+  const router = useRouter();
   const [videos, setVideos] = useState<LibraryVideo[]>([]);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<LibraryVideo | null>(null);
@@ -42,7 +44,7 @@ export function ContentLibrary() {
     setVideos((current) => current.map((item) => item.id === video.id ? { ...item, contents: [{ ...content, title }] } : item));
   }
   function createTask(video: LibraryVideo) {
-    window.location.href = `/publish-video?videoId=${encodeURIComponent(video.id)}`;
+    router.push(`/publish-video?videoId=${encodeURIComponent(video.id)}`);
   }
 
   return <div className="page">
