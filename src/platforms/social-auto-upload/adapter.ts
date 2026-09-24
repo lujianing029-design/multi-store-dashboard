@@ -1,6 +1,7 @@
 import type { Platform } from "@/generated/prisma";
-import type { PublisherAdapter, PublisherAccountCheck } from "@/platforms/publisher/types";
+import type { PublisherAdapter, PublisherAccountCheck, PublisherPublishInput, PublisherPublishResult } from "@/platforms/publisher/types";
 import { checkSauAccount, sauPlatformCommand } from "@/platforms/social-auto-upload/cli";
+import { publishWithSau } from "@/platforms/social-auto-upload/publish";
 
 export class SocialAutoUploadAdapter implements PublisherAdapter {
   readonly name = "social-auto-upload";
@@ -14,7 +15,7 @@ export class SocialAutoUploadAdapter implements PublisherAdapter {
     return { ...result, platform: input.platform };
   }
 
-  async publish(): Promise<never> {
-    throw new Error("Publishing is intentionally disabled during Issue #3A validation.");
+  async publish(input: PublisherPublishInput): Promise<PublisherPublishResult> {
+    return publishWithSau(input);
   }
 }
