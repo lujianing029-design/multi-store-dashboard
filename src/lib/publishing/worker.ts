@@ -22,6 +22,7 @@ export async function runPublishJob(jobId: string) {
   const task = target.publishTask;
   const account = target.platformAccount;
   const video = task.content.video;
+  if (!video) throw new Error("视频不存在。");
   const config = payload(target.platformPayload);
   if (!config.sauAccountName) throw new Error("账号缺少 sauAccountName 映射。");
 
