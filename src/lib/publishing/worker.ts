@@ -44,8 +44,15 @@ export async function runPublishJob(jobId: string) {
       prisma.publishJob.update({ where: { id: job.id }, data: { status: human ? "HUMAN_ACTION_REQUIRED" : success ? "SUCCEEDED" : "FAILED", finishedAt: new Date(), errorMessage: success ? null : result.stderr || result.stdout } }),
       prisma.publishTarget.update({ where: { id: target.id }, data: { status: human ? "HUMAN_ACTION_REQUIRED" : success ? "SUCCEEDED" : "FAILED" } }),
       prisma.publishResult.create({ data: { publishJobId: job.id, status: success ? "SUCCESS" : "FAILED", remotePublicationId: result.remotePublicationId, remoteUrl: result.remoteUrl, responseSummary: { state: result.state, exitCode: result.exitCode } } }),
-      prisma.publishLog.create({ data: { publishTaskId: task.id, publishJobId: job.id, level: success ? "INFO" : human ? "WARN" : "ERROR", event: result.state, message: result.stdout || result.stderr || result.state, metadata: { stderr: result.stderr } } })
+      prisma.publishLog.create({ data: { publishTaskId: task.id, publishJobId: job.id, level: success ? "INFO" : human ? "WARN" : "ERROR", event: result.state, message: result.stdout || result.stderr || result.state, metadata: { stderr: result.stderr } })
     ]);
+    const unfinished = await prisma.publishTarget.count({ where: { publishTaskId: task.id, status: { in: ["PENDING", "QUEUED", "RUNNING"] } } });
+    if (unfinished === 0) {
+      const failed = await prisma.publishTarget.count({ where: { publishTaskId: task.id, status: { in: ["FAILED", "HUMAN_ACTION_REQUIRED"] } } });
+      await prisma.publishTask.update({ where: { id: task.id }, data: { status: failed ? "FAILED" : "SUCCEEDED" } });
+    } else {
+      await prisma.publishTask.update({ where: { id: task.id }, data: { status: "RUNNING" } });
+    }
     return result;
   } finally {
     if (directory) await rm(directory, { recursive: true, force: true });
