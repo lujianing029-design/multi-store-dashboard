@@ -32,9 +32,9 @@ const adapters: ContentAdapter[] = [
   {
     platform: "XIAOHONGSHU",
     adapt: (master) => ({
-      title: `${master.title}｜穿搭笔记`.slice(0, 80),
-      body: `我的选品笔记 ✍️\n${master.body}\n\n${hashTags(master.tags)}`.trim(),
-      tags: cleanTags([...master.tags, "穿搭笔记"])
+      title: `${master.title}｜好物笔记`.slice(0, 80),
+      body: `好物笔记 ✍️\n${master.body}\n\n${hashTags(master.tags)}`.trim(),
+      tags: cleanTags([...master.tags, "好物笔记"])
     })
   },
   {
