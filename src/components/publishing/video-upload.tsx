@@ -50,6 +50,7 @@ export function VideoUpload() {
       completed += 1;
     }
     setFiles([]); setCover(null); setMessage(`已上传 ${completed} 个视频，并创建内容草稿。`); setUploading(false);
+    window.dispatchEvent(new Event("publisher:video-uploaded"));
   }
 
   return <div className="page">
